@@ -5,6 +5,7 @@ namespace app\controllers;
 use app\models\User;
 use app\models\Order;
 use app\services\MailService;
+use app\services\Api1C;
 use app\widgets\cabinet\Cabinet;
 use ishop\App;
 use ishop\libs\Pagination;
