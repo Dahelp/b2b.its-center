@@ -697,12 +697,20 @@ unset($item);
             'order_cancel.php' // файл конфигурации
         );
     
-        if ($response['success']) {
+        $apiResponse = is_array($response['response'] ?? null) ? $response['response'] : [];
+        $businessRejected =
+            (array_key_exists('success', $apiResponse) && !$apiResponse['success'])
+            || !empty($apiResponse['error']);
+
+        if (!empty($response['success']) && !$businessRejected) {
+            $order->status = 7;
+            $order->status_1c = 7;
+            $order->update_at = date('Y-m-d H:i:s');
+            \R::store($order);
             $_SESSION['success'] = 'Заказ успешно отменён.';
-            // При необходимости — обновить статус:
-            // \R::exec("UPDATE `order` SET status = 9 WHERE id = ?", [$order->id]);
         } else {
-            $_SESSION['error'] = 'Ошибка при отмене заказа: ' . $response['error'];
+            $apiError = (string)($apiResponse['error'] ?? $response['error'] ?? '1С отклонила запрос');
+            $_SESSION['error'] = 'Ошибка при отмене заказа: ' . $apiError;
         }
     
         redirect('/user/orders');

@@ -472,8 +472,24 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
 
                                 $('#dostavka_id').trigger('change');
 
+                                function isOrderCancelSubmit(e) {
+                                    const nativeEvent = e.originalEvent || {};
+                                    const submitter = nativeEvent.submitter || document.activeElement;
+                                    const action = submitter && submitter.getAttribute
+                                        ? submitter.getAttribute('formaction')
+                                        : '';
+
+                                    if (!action) return false;
+
+                                    return new URL(action, window.location.origin).pathname === '/user/delete-orders';
+                                }
+
                                 // Отправка формы                               
                                 $('#edit-order-form').on('submit', function (e) {
+                                    if (isOrderCancelSubmit(e)) {
+                                        return true;
+                                    }
+
                                     e.preventDefault();
                                     $('.preloader').fadeIn();
 
@@ -786,6 +802,10 @@ $(function () {
 
     // фронт-валидация на submit (как в корзине)
     $('#edit-order-form').on('submit', function (e) {
+        if (typeof isOrderCancelSubmit === 'function' && isOrderCancelSubmit(e)) {
+            return true;
+        }
+
         const dost = $('#dostavka_id').val();
         if (dost === '2') {
             const $sel = $('#order_city_selector');
