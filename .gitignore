@@ -1,0 +1,49 @@
+# Local configuration and secrets
+/.env
+/.env.*
+!/.env.example
+/config/config_db.php
+/config/params.php
+/config/api_goods.php
+/config/api_orders.php
+
+# Installed dependencies. vendor/ishop is legacy application source and must
+# remain versioned until it is moved into app/Core.
+/vendor/*
+!/vendor/ishop/
+!/vendor/ishop/**
+
+# Runtime data
+/storage/
+/tmp/
+*.log
+
+# Generated exports and imports
+/public/cron/
+/public/xls/
+/public/adminlte/xls/
+/public/adminlte/
+/public/upload/
+/public/uploads/
+/public/images/product/
+/public/images/technics/
+/public/images/technics_type/
+/public/images/technics_manufacturer/
+/public/images/review/
+/public/images/complete/
+/app/views/b2b/admin/Mailbox/files/
+
+# Legacy store administration is intentionally excluded from the B2B runtime.
+/app/controllers/admin/
+/app/models/admin/
+/app/views/b2b/admin/
+/app/views/b2b/layouts/admin.php
+
+# Local web-server overrides
+/cgi-bin/php.ini
+
+# OS and IDE metadata
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
