@@ -20,9 +20,12 @@ prices, orders, statuses, and marking data with 1C over HTTP APIs.
    `config/params.php` files.
 5. Use `php bin/check_database.php` to verify database access.
 
-See `.env.example` for environment variable names. The project does not load
-`.env` files itself; configure variables in Apache/PHP-FPM or the deployment
-environment.
+Copy `.env.example` to a server-local `.env`, fill its values, and set mode
+`600`. The file is loaded for web and CLI entry points and is excluded from Git.
+
+Production deployment and rollback instructions are in `docs/DEPLOYMENT.md`.
+Run `php bin/preflight.php` on the server before switching the domain to a new
+release.
 
 ## 1C callback
 

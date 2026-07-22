@@ -17,6 +17,7 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
       - run: composer validate --no-check-publish
+      - run: composer audit --locked --format=plain
       - run: composer check-platform-reqs
       - name: PHP syntax check
         shell: bash

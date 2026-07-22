@@ -14,6 +14,7 @@
     "vlucas/valitron": "^1.4",
     "symfony/mailer": "^7.2",
     "dompdf/dompdf": "^2.0",
-    "endroid/qr-code": "^6.0"
+    "endroid/qr-code": "^6.0",
+    "vlucas/phpdotenv": "^5.6"
   }
 }

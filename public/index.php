@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/config/env.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = !empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off';
     $sessionPath = dirname(__DIR__) . '/storage/sessions';
@@ -61,4 +63,3 @@ require_once LIBS . '/functions.php';
 require_once CONF . '/routes.php';
 
 new \ishop\App();
-
