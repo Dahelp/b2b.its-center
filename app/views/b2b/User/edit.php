@@ -16,6 +16,7 @@ if($company->tip == "3"){ $tip = "Спец. торговля";}
 					</div>
 					<div class="card-body">
 						<form action="user/edit" method="post" data-toggle="validator">
+							<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 							<div class="box-body">
 								<div class="form-group has-feedback mb-3">
 									<label for="groups">Группа</label>

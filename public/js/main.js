@@ -226,6 +226,9 @@ $(function() {
     updateCartInfo();
 });
 
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+$.ajaxSetup({ headers: { 'X-CSRF-Token': csrfToken } });
+
 // Добавление в корзину
 $('body').on('click', '.add-to-cart-link', function(e){
     e.preventDefault();
@@ -236,7 +239,7 @@ $('body').on('click', '.add-to-cart-link', function(e){
     const max = $(this).data('max');
     const qty = $('.qty-item-' + cartKey).val() || 1;
 
-    $.get('/cart/add', { id, qty, max, mod }, function(res) {
+    $.post('/cart/add', { id, qty, max, mod }, function(res) {
         const data = JSON.parse(res);
 
         $('#cart-total').text(data.qty);
@@ -332,7 +335,7 @@ $('body').on('click', '.del-item-cart', function(){
 
 // Очистка корзины
 $('body').on('click', '.clear-cart', function(){
-    $.get('/cart/clear', function(){
+    $.post('/cart/clear', function(){
         $('#cart-total').text('0').addClass('d-none');
         $('.cart-block').hide();
         $('.cart-no-product').show();
@@ -348,7 +351,7 @@ function updateCartQuantity(id, qty, max = null, action = 'updated', mod = 0) {
     const cartKey = mod > 0 ? `${id}-${mod}` : `${id}`;
     const $input = $('.qty-item-' + cartKey);
 
-    $.get('/cart/add', { id, qty, max, mod }, function(res){
+    $.post('/cart/add', { id, qty, max, mod }, function(res){
         const data = JSON.parse(res);
 
         $('#cart-total').text(data.qty);
@@ -493,7 +496,7 @@ $('body').on('click', '.btn-wishlist, .btn-wishlist2', function (e) {
 
   $.ajax({
     url: '/user/bookmarks',
-    type: 'GET',
+    type: 'POST',
     data: { product_id, mod_id },      // ← всегда два параметра
     complete: function(){ btn.data('busy', false); },
     success: function(res){
@@ -619,7 +622,7 @@ $('body').on('click', '.newsletter_checked', function(){
     $.ajax({
         url: '/user/addnewsletter',
         data: {newsletter_id: newsletter_id, checked: checked},
-        type: 'GET',
+        type: 'POST',
         success: function(res){
 			$('.form-newsletter').html(res);
 		},
@@ -634,7 +637,7 @@ $('body').on('click', '.switch-newsletter', function(){
     $.ajax({
         url: '/user/deletenewsletter',
         data: {checked: checked},
-        type: 'GET',
+        type: 'POST',
         success: function(res){
 			$('.form-newsletter').html(res);
 		},
@@ -643,8 +646,5 @@ $('body').on('click', '.switch-newsletter', function(){
         }
     });
 });
-
-
-
 
 

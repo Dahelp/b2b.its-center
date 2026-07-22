@@ -6,20 +6,17 @@ use app\models\Cart;
 use app\models\Order;
 use ishop\App;
 use app\helpers\SessionHelper;
+use app\helpers\RequestGuard;
 
 class CartController extends AppController {
 
     public function addAction() {
-    $id = !empty($_GET['id']) ? (int)$_GET['id'] : null;
-    $qty = isset($_GET['qty']) ? (int)$_GET['qty'] : null;
-    $mod_id = !empty($_GET['mod']) ? (int)$_GET['mod'] : null;
-    $max = !empty($_GET['max']) ? (int)$_GET['max'] : null;
-
-    file_put_contents(
-    ROOT . '/storage/logs/cart_debug.log',
-    "[" . date('Y-m-d H:i:s') . "] addAction: id=" . ($_GET['id'] ?? '-') . " mod=" . ($_GET['mod'] ?? '-') . " qty=" . ($_GET['qty'] ?? '-') . "\n",
-    FILE_APPEND
-);
+    RequestGuard::requirePost(true);
+    RequestGuard::requireCsrf(true);
+    $id = !empty($_POST['id']) ? (int)$_POST['id'] : null;
+    $qty = isset($_POST['qty']) ? (int)$_POST['qty'] : null;
+    $mod_id = !empty($_POST['mod']) ? (int)$_POST['mod'] : null;
+    $max = !empty($_POST['max']) ? (int)$_POST['max'] : null;
 
     $mod = null;
     $cart = new Cart();
@@ -179,6 +176,8 @@ class CartController extends AppController {
     }
 
     public function clearAction() {
+        RequestGuard::requirePost(true);
+        RequestGuard::requireCsrf(true);
         $cart = new Cart();
         $cart->clearCart();
 
@@ -243,6 +242,8 @@ class CartController extends AppController {
 
     public function checkoutAction() {
     $this->view = false;
+    RequestGuard::requirePost();
+    RequestGuard::requireCsrf();
 
     if (!empty($_POST)) {
 
@@ -268,7 +269,7 @@ class CartController extends AppController {
             $comp_id = $_POST['comp_id'] ?? null;
             if (!$comp_id) throw new \Exception('Компания не выбрана');
 
-            $comp = \R::findOne('company', 'id = ?', [$comp_id]);
+            $comp = \R::findOne('company', 'id = ? AND id = ?', [$comp_id, $usok->comp_id]);
             if (!$comp) throw new \Exception('Компания не найдена');
 
             // --- Параметры доставки

@@ -65,7 +65,10 @@
 											<td style="display: table-cell;"><?= date('d.m.Y', strtotime($order['date'])) ?></td>
 											<td style="display: table-cell;">
 											<?php if($createdToday && $needsRetry): ?>													
-													<a href="/user/retry1c?id=<?=$order["id"];?>" class="badge badge-inline badge-warning">Повторить отправку</a>
+											<form method="post" action="/user/retry1c" class="d-inline">
+												<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+												<button type="submit" name="id" value="<?= (int)$order['id'] ?>" class="badge badge-inline badge-warning border-0">Повторить отправку</button>
+											</form>
 											<?php else: ?>
 												<span class="badge badge-inline <?=$class;?>"><?=$status['status_name'];?></span>
 											<?php endif; ?>	

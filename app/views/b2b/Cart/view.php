@@ -19,6 +19,7 @@
         <div class="d-flex align-items-start cab-inner">
             <div class="aiz-user-panel cart-block" style="display: <?= !empty($cart) ? 'block' : 'none' ?>">
                 <form method="post" action="cart/checkout" role="form" enctype="multipart/form-data" id="checkout-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <div class="card">
                         <div class="card-header register-top heading d-flex justify-content-between align-items-center pb-4">
                             <h5 class="mb-0 h6">Оформление заказа</h5>
@@ -381,4 +382,3 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 </script>
-

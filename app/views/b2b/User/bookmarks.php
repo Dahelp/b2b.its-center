@@ -122,11 +122,14 @@
 											<i class="far fa-eye"></i>
 										</a>
 
-										<a href="user/bookmarks-delete?id=<?=$item['id']?>"
+										<form method="post" action="/user/bookmarks-delete" class="d-inline">
+										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+										<button type="submit" name="id" value="<?= (int)$item['id'] ?>"
 										class="btn btn-soft-danger btn-icon btn-circle btn-sm confirm-delete"
 										title="Удалить закладку">
 											<i class="fas fa-trash"></i>
-										</a>
+										</button>
+										</form>
 									</div>
 								</td>
 								</tr>

@@ -12,6 +12,7 @@ use Swift_SmtpTransport;
 use Swift_Attachment;
 use ishop\libs\Pagination;
 use app\helpers\ApiClient;
+use app\helpers\RequestGuard;
 
 class UserController extends AppController {
 	
@@ -35,6 +36,8 @@ class UserController extends AppController {
     }
 	
 	public function addnewsletterAction() {
+		RequestGuard::requirePost(true);
+		RequestGuard::requireCsrf(true);
 
         if (!User::checkAuth()) {
             redirect('/');
@@ -42,13 +45,13 @@ class UserController extends AppController {
         }
 
         $userId = $_SESSION['b2buser']['id'] ?? null;
-        if (!$userId || empty($_GET)) {
+        if (!$userId || empty($_POST)) {
             redirect('/');
             exit;
         }
 
-        $newsletter_id = (int) ($_GET['newsletter_id'] ?? 0);
-        $checked = (int) ($_GET['checked'] ?? 0);
+        $newsletter_id = (int) ($_POST['newsletter_id'] ?? 0);
+        $checked = (int) ($_POST['checked'] ?? 0);
 
         if ($newsletter_id) {
             if ($checked === 1) {
@@ -65,6 +68,8 @@ class UserController extends AppController {
     }
 	
 	public function deletenewsletterAction() {
+		RequestGuard::requirePost(true);
+		RequestGuard::requireCsrf(true);
 
         if (!User::checkAuth()) {
             redirect('/');
@@ -72,7 +77,7 @@ class UserController extends AppController {
         }
 
         $userId = $_SESSION['b2buser']['id'] ?? null;
-        $checked = (int) ($_GET['checked'] ?? -1);
+        $checked = (int) ($_POST['checked'] ?? -1);
 
         if (!$userId || $checked === -1) {
             redirect('/');
@@ -157,6 +162,8 @@ class UserController extends AppController {
         if (!User::checkAuth()) { redirect('/'); exit; }
 
         if (!empty($_POST)) {
+            RequestGuard::requirePost();
+            RequestGuard::requireCsrf();
             $user = \R::load('user', $_SESSION['b2buser']['id'] ?? 0);
             if (!$user->id) {
                 $_SESSION['error'] = 'Пользователь не найден';
@@ -649,22 +656,17 @@ unset($item);
     }
 
     public function deleteOrdersAction() {
+        RequestGuard::requirePost();
+        RequestGuard::requireCsrf();
         if (!User::checkAuth()) {
             redirect('/');
             exit;
         }
     
-        $id = $_GET['id'] ?? null;
-        $token = $_GET['token'] ?? '';
+        $id = $_POST['id'] ?? null;
     
         if (!$id || !is_numeric($id)) {
             $_SESSION['error'] = 'Некорректный ID заказа';
-            redirect('/user/orders');
-            exit;
-        }
-    
-        if (empty($token) || $token !== ($_SESSION['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Ошибка безопасности (CSRF)';
             redirect('/user/orders');
             exit;
         }
@@ -714,13 +716,15 @@ unset($item);
     public function retry1cAction() {
 
         $this->view = false;
+        RequestGuard::requirePost();
+        RequestGuard::requireCsrf();
     
         if (!User::checkAuth()) {
             redirect('/');
             exit;
         }
     
-        $order_id = $_GET['id'] ?? null;
+        $order_id = $_POST['id'] ?? null;
         $user_id = $_SESSION['b2buser']['id'];
     
         if (!$order_id || !is_numeric($order_id)) {
@@ -1107,10 +1111,19 @@ if ($request === 1) {
 
     public function updateOrderAction() {
         header('Content-Type: application/json');
+        RequestGuard::requirePost(true);
+        $userId = RequestGuard::requireAuth(true);
+        RequestGuard::requireCsrf(true);
     
         $order_id = $_POST['order_id'] ?? null;
         if (!$order_id) {
             echo json_encode(['success' => false, 'message' => 'Не указан ID заказа']); exit;
+        }
+
+        $ownedOrder = \R::findOne('order', 'id = ? AND user_id = ?', [(int)$order_id, $userId]);
+        if (!$ownedOrder) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Заказ не найден']); exit;
         }
     
         try {
@@ -1131,10 +1144,12 @@ if ($request === 1) {
     $user_id = (int)$_SESSION['b2buser']['id'];
 
     // В начале экшена после checkAuth:
-    if (isset($_GET['product_id'])) {
+    if (isset($_POST['product_id'])) {
+        RequestGuard::requirePost(true);
+        RequestGuard::requireCsrf(true);
         $user_id    = (int)$_SESSION['b2buser']['id'];
-        $product_id = (int)$_GET['product_id'];
-        $mod_id     = (int)($_GET['mod_id'] ?? 0); // 0 = товар
+        $product_id = (int)$_POST['product_id'];
+        $mod_id     = (int)($_POST['mod_id'] ?? 0); // 0 = товар
 
         // ТОЛЬКО эта пара считается уникальной
         $exists_id = \R::getCell(
@@ -1279,9 +1294,11 @@ if ($request === 1) {
 }
     	
 	public function bookmarksDeleteAction() {
+		RequestGuard::requirePost();
+		RequestGuard::requireCsrf();
 		if (!User::checkAuth()) { redirect('/'); exit; }
 		$user_id = (int)$_SESSION['b2buser']['id'];
-		$id = (int)($_GET['id'] ?? 0);
+		$id = (int)($_POST['id'] ?? 0);
 		if ($id) {
 			\R::exec('DELETE FROM product_bookmarks WHERE id = ? AND user_id = ?', [$id, $user_id]);
 		}

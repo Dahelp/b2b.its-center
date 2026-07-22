@@ -340,11 +340,11 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <button type="submit" class="btn btn-success">Сохранить заказ</button>
                                 <?php if ($is_editable && !empty($order_info->guid_1c)): ?>
-                                <a href="/user/delete-orders?id=<?= $order_info->id ?>&token=<?= $_SESSION['csrf_token'] ?>" 
-                                class="btn btn-danger" 
+                                <button type="submit" formaction="/user/delete-orders" formmethod="post"
+                                name="id" value="<?= (int)$order_info->id ?>" class="btn btn-danger"
                                 onclick="return confirm('Вы уверены, что хотите отменить заказ?');">
                                     Отмена
-                                </a>
+                                </button>
                             <?php endif; ?>
                             </div>                            
                         </form>
