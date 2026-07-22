@@ -29,8 +29,7 @@
     <link rel="stylesheet" href="css/style.css" type="text/css" media="all" />
 	<link rel="stylesheet" href="public/adminlte/plugins/fontawesome-free/css/all.min.css" />
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-	<link rel="stylesheet" href="public/adminlte/plugins/select2/css/select2.min.css" />
-	<link rel="stylesheet" href="public/adminlte/plugins/select2-bootstrap5-theme/select2-bootstrap-5-theme.min.css" />	
+	<link rel="stylesheet" href="/assets/vendor/select2/css/select2.min.css" />
 	<link rel="stylesheet" href="css/swiper-bundle.min.css" />
 
 	<script src="js/imask.min.js"></script><!-- telefon -->
@@ -409,8 +408,8 @@
 <script src="js/jquery-1.11.0.min.js"></script>
 <script src="js/popper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="public/adminlte/plugins/select2/js/select2.full.min.js"></script>
-<script src="public/adminlte/plugins/select2/js/i18n/ru.js"></script>
+<script src="/assets/vendor/select2/js/select2.full.min.js"></script>
+<script src="/assets/vendor/select2/js/i18n/ru.js"></script>
 
 <script src="js/swiper-bundle.min.js"></script>
 <script>
