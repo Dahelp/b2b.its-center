@@ -24,7 +24,11 @@ class NewsController extends AppController {
 		/*SEO*/
 		if($this->route["controller"]){ $path_controller = "/".mb_strtolower($this->route["controller"]).""; }else{ $path_controller = ""; }
 		if($this->route["alias"]){ $path_alias = "/".$this->route["alias"].""; }else{ $path_alias = ""; }
-		if($find->img){$find_img = "".PATH."/images/contents/baseimg/".$find->img.""; }else{ $find_img = "".PATH."/images/".App::$app->getProperty('og_logo').""; }
+		if ($find->img) {
+			$find_img = 'https://its-center.ru/images/contents/baseimg/' . rawurlencode(basename((string)$find->img));
+		} else {
+			$find_img = 'https://its-center.ru/images/' . rawurlencode(basename((string)App::$app->getProperty('og_logo')));
+		}
 		$this->setMeta($find->title, $find->description, $find->keywords, '' . App::$app->getProperty('shop_name') . '', ''.$find_img.'', ''.PATH.''.$path_controller.''.$path_alias.'');
 		/*SEO*/
 		
@@ -53,4 +57,4 @@ class NewsController extends AppController {
         $this->set(compact('conts', 'type', 'pagination'));
 	}
 
-} 
+}
