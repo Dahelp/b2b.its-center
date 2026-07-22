@@ -111,7 +111,9 @@ class UserController extends AppController {
     }
 	
     public function loginAction() {
-        if (!empty($_POST)) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            RequestGuard::requirePost();
+            RequestGuard::requireCsrf();
             $user = new User();
             if ($user->login()) {
                 unset($_SESSION['error']);
@@ -142,8 +144,12 @@ class UserController extends AppController {
     }
 
     public function logoutAction() {
+        RequestGuard::requirePost();
+        RequestGuard::requireCsrf();
         unset($_SESSION['b2buser']);
         unset($_SESSION['form_data']);
+        unset($_SESSION['csrf_token']);
+        session_regenerate_id(true);
         redirect('/');
     }
 	
@@ -1392,8 +1398,10 @@ if ($request === 1) {
 
     public function pdfscoreAction(){
         if (!User::checkAuth()) { redirect('/'); exit; }
-		$order_id = $_GET["order"];		
-		$order = \R::findOne("order", "id = ?", [$order_id]);
+		$order_id = (int)($_GET["order"] ?? 0);
+		$userId = (int)$_SESSION['b2buser']['id'];
+		$order = \R::findOne("order", "id = ? AND user_id = ?", [$order_id, $userId]);
+		if (!$order) { http_response_code(404); exit('Заказ не найден'); }
         $order_products = \R::findAll('order_product', "order_id = ?", [$order_id]);
 		$seller = \R::findOne('company', 'id = ?', [$order['seller']]);
 		$user = \R::findOne('user', 'id = ?', [$order['user_id']]);
@@ -1413,22 +1421,29 @@ if ($request === 1) {
 
 	
 	public function recoverAction(){
-		if ($_POST) {
-			$email = !empty($_POST["email"]) ? trim($_POST["email"]) : ''; 
+		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+			RequestGuard::requirePost();
+			RequestGuard::requireCsrf();
+			$email = strtolower(trim((string)($_POST["email"] ?? '')));
 			$user = \R::findOne('user', 'email = ?', [$email]);
 
-			if (!$user) {
-				$_SESSION['error'] = 'Email не найден';
+			// Одинаковый ответ не позволяет проверить, зарегистрирован ли email.
+			$_SESSION['success'] = 'Если такой email зарегистрирован, ссылка для восстановления будет отправлена.';
+			if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !$user) {
 				redirect();
 			}
 
-			// Удаляем старый токен, если был
+			// Не выпускаем новый токен, пока предыдущий ещё действует.
+			if (\R::findOne('recover', 'email = ? AND expire > ?', [$email, time()])) {
+				redirect();
+			}
 			\R::exec("DELETE FROM recover WHERE email = ?", [$email]);
 
 			$expire = time() + 3600; // Токен действует 1 час
 			$token = bin2hex(random_bytes(50)); // Генерируем новый токен
 
-			\R::exec("INSERT INTO `recover`(`hash`, `expire`, `email`) VALUES (?, ?, ?)", [$token, $expire, $email]);
+			$tokenHash = hash('sha256', $token);
+			\R::exec("INSERT INTO `recover`(`hash`, `expire`, `email`) VALUES (?, ?, ?)", [$tokenHash, $expire, $email]);
 
 			$reset_link = "https://b2b.its-center.ru/?token=" . $token;
 
@@ -1454,10 +1469,9 @@ if ($request === 1) {
 					"Пользователь $user_name ($email) запросил восстановление пароля."
 				);
 
-				$_SESSION['success'] = 'Ссылка для восстановления отправлена на email.';
 			} catch (\Throwable $e) {
 				error_log('Password recovery email failed: ' . get_class($e));
-				$_SESSION['error'] = 'Не удалось отправить письмо. Попробуйте позже.';
+				\R::exec("DELETE FROM recover WHERE email = ?", [$email]);
 			}
 
 			redirect();
@@ -1468,13 +1482,32 @@ if ($request === 1) {
 
 	
 	public function recoverPassAction(){
+		RequestGuard::requirePost(true);
+		header('Content-Type: application/json; charset=utf-8');
 		if (!empty($_POST['password']) && !empty($_POST['token'])) {
-			$token = $_POST['token'];
-			$password = trim($_POST['password']);
+			$token = trim((string)$_POST['token']);
+			$password = (string)$_POST['password'];
+			if (!preg_match('/^[a-f0-9]{100}$/', $token)) {
+				echo json_encode(["success" => false, "error" => "Неверная или устаревшая ссылка"], JSON_UNESCAPED_UNICODE);
+				exit;
+			}
 
-			$record = \R::findOne('recover', 'hash = ? AND expire > ?', [$token, time()]);
+			// Второй вариант сохраняет совместимость с токенами, выданными до обновления.
+			$record = \R::findOne('recover', '(hash = ? OR hash = ?) AND expire > ?', [hash('sha256', $token), $token, time()]);
 			if (!$record) {
-				echo json_encode(["success" => false, "error" => "Неверная или устаревшая ссылка"]);
+				echo json_encode(["success" => false, "error" => "Неверная или устаревшая ссылка"], JSON_UNESCAPED_UNICODE);
+				exit;
+			}
+			$userModel = new User();
+			if (!$userModel->validatePassword($password)) {
+				$error = (string)($_SESSION['error'] ?? 'Пароль не соответствует требованиям безопасности.');
+				unset($_SESSION['error']);
+				echo json_encode(["success" => false, "error" => $error], JSON_UNESCAPED_UNICODE);
+				exit;
+			}
+			$claimed = \R::exec('DELETE FROM recover WHERE id = ? AND expire > ?', [(int)$record->id, time()]);
+			if ($claimed !== 1) {
+				echo json_encode(["success" => false, "error" => "Неверная или устаревшая ссылка"], JSON_UNESCAPED_UNICODE);
 				exit;
 			}
 
@@ -1482,10 +1515,7 @@ if ($request === 1) {
 			$hashed_password = password_hash($password, PASSWORD_DEFAULT);
 			\R::exec("UPDATE user SET password = ? WHERE email = ?", [$hashed_password, $record->email]);
 
-			// Удаляем использованный токен
-			\R::exec("DELETE FROM recover WHERE email = ?", [$record->email]);
-
-			echo json_encode(["success" => true]);
+			echo json_encode(["success" => true], JSON_UNESCAPED_UNICODE);
 			exit;
 		}
 
@@ -1494,18 +1524,41 @@ if ($request === 1) {
 	}
 	
 	public function zvonokAction(){
-		if($_POST){
-			$phone = $_POST["phone"];
-			$title = $_POST["title"];
-			$first = substr($phone, "0",5);		
-			if($first != "+7 (9") { $this->errors['unique'][] = "Запрос не обработан! Вы робот? Если нет, попробуйте заполнить форму обратной связи еще раз!"; } else {	
-				
-				$res = \R::exec("INSERT INTO `callback` (`user_id`, `topic`, `phone`, `date_create`, `date_modified`, `user_modified`, `hide`) VALUES ('".$user_id."', '', '".$phone."', '".date('Y-m-d H:i:s')."', '', '', '')");		
-				if($res){
-					
-					$last = \R::findLast('callback');				
-					\R::exec("INSERT INTO `admin_last_history`(`gh_id`, `ah_id`, `name_tbl`, `id_tbl`, `date_modified`, `customer_id`) VALUES ('1','2','callback','".$last->id."','".date('Y-m-d H:i:s')."','".$_SESSION['b2buser']['id']."')");
-					setcookie("request-mig", "1house", time()+3600);
+		RequestGuard::requirePost(true);
+		$userId = RequestGuard::requireAuth(true);
+		RequestGuard::requireCsrf(true);
+		header('Content-Type: application/json; charset=utf-8');
+		$phone = trim((string)($_POST["phone"] ?? ''));
+		$title = mb_substr(trim((string)($_POST["title"] ?? '')), 0, 255);
+		$digits = preg_replace('/\D+/', '', $phone);
+		if (!preg_match('/^79\d{9}$/', $digits)) {
+			http_response_code(422);
+			echo json_encode(['success' => false, 'error' => 'Укажите корректный мобильный номер.'], JSON_UNESCAPED_UNICODE);
+			exit;
+		}
+		if ((int)($_SESSION['callback_sent_at'] ?? 0) > time() - 60) {
+			http_response_code(429);
+			echo json_encode(['success' => false, 'error' => 'Повторите запрос через минуту.'], JSON_UNESCAPED_UNICODE);
+			exit;
+		}
+
+		$callback = \R::dispense('callback');
+		$callback->user_id = $userId;
+		$callback->topic = $title;
+		$callback->phone = $phone;
+		$callback->date_create = date('Y-m-d H:i:s');
+		$callback->date_modified = '';
+		$callback->user_modified = '';
+		$callback->hide = '';
+		if (\R::store($callback)) {
+					$_SESSION['callback_sent_at'] = time();
+					setcookie("request-mig", "1house", [
+						'expires' => time() + 3600,
+						'path' => '/',
+						'secure' => !empty($_SERVER['HTTPS']),
+						'httponly' => true,
+						'samesite' => 'Lax',
+					]);
 					
 					$namecomp = App::$app->getProperty('shop_name');
 					$tell_site = \ishop\App::options('option_telefon');
@@ -1516,20 +1569,23 @@ if ($request === 1) {
 					$body = ob_get_clean();
 
 
-					MailService::sendHtml(
-						App::$app->getProperty('admin_email'),
-						"Заказ обратного звонка на сайте " . App::$app->getProperty('shop_name'),
-						$body
-					);
+					try {
+						MailService::sendHtml(
+							App::$app->getProperty('admin_email'),
+							"Заказ обратного звонка на сайте " . App::$app->getProperty('shop_name'),
+							$body
+						);
+					} catch (\Throwable $e) {
+						error_log('Callback email failed: ' . get_class($e));
+					}
 					
 					$_SESSION['success'] = 'Спасибо за заказ обратного звонка. Наш менеджер обязательно Вам позвонит по указаному номеру который вы указали. Ожидайте звонка в рабочее время с ПН-ПТ 9:00 до 17:00 по МСК.';
-					return true;
-				}else{
-					return false;
-				}							
-				             
-			}
+					echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+					exit;
 		}
+		http_response_code(500);
+		echo json_encode(['success' => false, 'error' => 'Не удалось сохранить запрос.'], JSON_UNESCAPED_UNICODE);
+		exit;
 	}
 
     public function downloadMarksAction() {

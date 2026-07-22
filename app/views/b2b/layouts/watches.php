@@ -215,7 +215,10 @@
 									</div>
 								</div>
 								<div class="user-auth text-end">
-									<a href="<?= PATH ?>/user/logout" title=""><span>Выход</span></a>
+									<form action="<?= PATH ?>/user/logout" method="post" class="d-inline">
+										<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+										<button type="submit" class="btn btn-link p-0 border-0 align-baseline"><span>Выход</span></button>
+									</form>
 								</div>
 							<?php endif; ?>
 						</div>              

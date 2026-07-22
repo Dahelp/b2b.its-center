@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+	<meta name="csrf-token" content="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 	<base href="<?=PATH?>/">
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -95,6 +96,7 @@
 							<!-- Форма авторизации -->
 							<div id="loginForm">
 								<form action="/user/login" method="post">
+									<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 									<div class="ant-row Login__form-row">
 										<span class="ant-input-affix-wrapper">
 											<span class="ant-input-prefix"><i class="anticon anticon-user"></i></span>
@@ -124,6 +126,7 @@
 							<!-- Форма восстановления пароля (скрыта по умолчанию) -->
 							<div id="recoverForm" style="display: none;">
 								<form action="/user/recover" method="post">
+									<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 									<div class="ant-row Login__form-row">
 										<input type="email" name="email" placeholder="E-mail пользователя" class="ant-input" id="recoverEmail">
 									</div>
@@ -206,6 +209,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             sessionStorage.setItem("reset_token", "<?php echo htmlspecialchars($_GET['token'], ENT_QUOTES, 'UTF-8'); ?>");
+            window.history.replaceState({}, document.title, window.location.pathname);
             showResetPasswordForm();
         });
     </script>

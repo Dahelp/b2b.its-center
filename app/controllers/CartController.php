@@ -415,13 +415,16 @@ class CartController extends AppController {
             redirect('/user/orders'); exit;
 
         } catch (\Throwable $e) {
-            $log = date('Y-m-d H:i:s') . " | Ошибка оформления заказа:\n" .
-                   $e->getMessage() . "\n" .
-                   var_export($_POST, true) . "\n\n";
+            $log = sprintf(
+                "%s | checkout_failed | exception=%s | user_id=%d\n",
+                date('Y-m-d H:i:s'),
+                get_class($e),
+                (int)($_SESSION['b2buser']['id'] ?? 0)
+            );
 
             file_put_contents(ROOT . '/storage/logs/order_store_error.log', $log, FILE_APPEND);
 
-            $_SESSION['error'] = 'Ошибка при оформлении заказа: ' . $e->getMessage();
+            $_SESSION['error'] = 'Не удалось оформить заказ. Попробуйте ещё раз или обратитесь к менеджеру.';
             redirect('/cart/checkout'); exit;
         }
     }

@@ -10,6 +10,7 @@
                     <div class="register-main">
                         <div class="col-md-6 account-left">
                             <form method="post" action="user/recover" id="recover" role="form" data-toggle="validator">                                
+								<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(\app\helpers\RequestGuard::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 								<div class="form-group has-feedback mb-3">
                                     <label class="form-label" for="email">Email</label>
                                     <input type="email" name="email" class="form-control" id="email" placeholder="Email" required>
