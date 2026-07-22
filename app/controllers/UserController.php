@@ -4,12 +4,9 @@ namespace app\controllers;
 
 use app\models\User;
 use app\models\Order;
+use app\services\MailService;
 use app\widgets\cabinet\Cabinet;
 use ishop\App;
-use Swift_Mailer;
-use Swift_Message;
-use Swift_SmtpTransport;
-use Swift_Attachment;
 use ishop\libs\Pagination;
 use app\helpers\ApiClient;
 use app\helpers\RequestGuard;
@@ -223,23 +220,6 @@ class UserController extends AppController {
 	
 	public function companyAction(){
         if (!User::checkAuth()) { redirect('/'); exit; }
-        if(!empty($_POST)){
-            $company = new \app\models\admin\Company();
-            $data = $_POST;
-            $data['user_id'] = $_SESSION['b2buser']['id'];
-			$data['tip'] = 1;
-            $company->load($data);
-
-            if(!$company->validate($data) || !$company->checkUnique()){
-                $company->getErrors();
-                redirect();
-            }
-            if($company->update('company', $data['comp_id'])){
-                
-                $_SESSION['success'] = 'Изменения сохранены';
-            }
-            redirect();
-        }
 		$category = \R::getAll("SELECT * FROM category");
 		$company = \R::findOne('company', 'user_id = ?', [$_SESSION['b2buser']['id']]);
         $this->setMeta('Компания');
@@ -1452,16 +1432,8 @@ if ($request === 1) {
 
 			$reset_link = "https://b2b.its-center.ru/?token=" . $token;
 
-			// **Отправка письма через SwiftMailer**
+			// Отправка письма через единый SMTP-сервис
 			try {
-				// Настройки SMTP
-				$transport = (new Swift_SmtpTransport(App::$app->getProperty('smtp_host'), App::$app->getProperty('smtp_port'), App::$app->getProperty('smtp_protocol')))
-					->setUsername(App::$app->getProperty('smtp_login'))
-					->setPassword(App::$app->getProperty('smtp_password'));
-
-				// Создаём объект Mailer
-				$mailer = new Swift_Mailer($transport);
-
 				// Данные для письма
 				$shop_name = App::$app->getProperty('shop_name');
 				$admin_email = App::$app->getProperty('admin_email');
@@ -1473,26 +1445,19 @@ if ($request === 1) {
 				require APP . '/views/' . TEMPLATE . '/mail/mail_recover.php';
 				$body = ob_get_clean();
 
-				// Формируем письмо
-				$message = (new Swift_Message("Восстановление пароля на сайте " . $shop_name))
-					->setFrom([App::$app->getProperty('smtp_login') => $shop_name])
-					->setTo([$email => $user_name])
-					->setBody($body, 'text/html');
-
-				// Отправляем письмо
-				$mailer->send($message);
-
-				// Отправляем уведомление админу
-				$admin_message = (new Swift_Message("Запрос на восстановление пароля от $user_name"))
-					->setFrom([App::$app->getProperty('smtp_login') => $shop_name])
-					->setTo($admin_email)
-					->setBody("Пользователь $user_name ($email) запросил восстановление пароля.", 'text/html');
-
-				$mailer->send($admin_message);
+				if (!MailService::sendHtml($email, "Восстановление пароля на сайте " . $shop_name, $body, $user_name)) {
+					throw new \RuntimeException('SMTP is not configured or recipient is invalid');
+				}
+				MailService::sendHtml(
+					$admin_email,
+					"Запрос на восстановление пароля от $user_name",
+					"Пользователь $user_name ($email) запросил восстановление пароля."
+				);
 
 				$_SESSION['success'] = 'Ссылка для восстановления отправлена на email.';
-			} catch (Exception $e) {
-				$_SESSION['error'] = 'Ошибка отправки письма: ' . $e->getMessage();
+			} catch (\Throwable $e) {
+				error_log('Password recovery email failed: ' . get_class($e));
+				$_SESSION['error'] = 'Не удалось отправить письмо. Попробуйте позже.';
 			}
 
 			redirect();
@@ -1542,13 +1507,6 @@ if ($request === 1) {
 					\R::exec("INSERT INTO `admin_last_history`(`gh_id`, `ah_id`, `name_tbl`, `id_tbl`, `date_modified`, `customer_id`) VALUES ('1','2','callback','".$last->id."','".date('Y-m-d H:i:s')."','".$_SESSION['b2buser']['id']."')");
 					setcookie("request-mig", "1house", time()+3600);
 					
-					// Create the Transport
-					$transport = (new Swift_SmtpTransport(App::$app->getProperty('smtp_host'), App::$app->getProperty('smtp_port'), App::$app->getProperty('smtp_protocol')))
-						->setUsername(App::$app->getProperty('smtp_login'))
-						->setPassword(App::$app->getProperty('smtp_password'))
-					;
-					// Create the Mailer using your created Transport
-					$mailer = new Swift_Mailer($transport);
 					$namecomp = App::$app->getProperty('shop_name');
 					$tell_site = \ishop\App::options('option_telefon');
 					
@@ -1558,14 +1516,11 @@ if ($request === 1) {
 					$body = ob_get_clean();
 
 
-					$message_admin = (new Swift_Message("Заказ обратного звонка на сайте " . App::$app->getProperty('shop_name')))
-						->setFrom([App::$app->getProperty('smtp_login') => App::$app->getProperty('shop_name')])
-						->setTo(App::$app->getProperty('admin_email'))
-						->setBody($body, 'text/html')
-					;
-					
-					
-					$result = $mailer->send($message_admin);
+					MailService::sendHtml(
+						App::$app->getProperty('admin_email'),
+						"Заказ обратного звонка на сайте " . App::$app->getProperty('shop_name'),
+						$body
+					);
 					
 					$_SESSION['success'] = 'Спасибо за заказ обратного звонка. Наш менеджер обязательно Вам позвонит по указаному номеру который вы указали. Ожидайте звонка в рабочее время с ПН-ПТ 9:00 до 17:00 по МСК.';
 					return true;

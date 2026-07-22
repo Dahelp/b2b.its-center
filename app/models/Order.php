@@ -3,10 +3,7 @@
 namespace app\models;
 
 use ishop\App;
-use Swift_Mailer;
-use Swift_Message;
-use Swift_SmtpTransport;
-use Swift_Attachment;
+use app\services\MailService;
 
 class Order extends AppModel {
 	
@@ -343,41 +340,26 @@ class Order extends AppModel {
 </html>';
 
     // --- SMTP ОТПРАВКА ---
-    $smtpHost   = \ishop\App::$app->getProperty('smtp_host');
-    $smtpPort   = (int)\ishop\App::$app->getProperty('smtp_port');
-    $smtpProto  = \ishop\App::$app->getProperty('smtp_protocol') ?: '';
-    $smtpLogin  = \ishop\App::$app->getProperty('smtp_login');
-    $smtpPass   = \ishop\App::$app->getProperty('smtp_password');
     $adminEmail = \ishop\App::$app->getProperty('admin_email');
 
-    if (empty($smtpHost) || empty($smtpPort) || empty($smtpLogin) || empty($smtpPass)) {
-        $log("❌ SMTP config incomplete, skip send");
-        return;
-    }
-
     try {
-        $transport = (new Swift_SmtpTransport($smtpHost, $smtpPort, $smtpProto))
-            ->setUsername($smtpLogin)
-            ->setPassword($smtpPass);
-        $mailer = new Swift_Mailer($transport);
-
         $subjClient = "Вы совершили заказ №{$order_inv} на сайте {$shopName}";
         $subjAdmin  = "Сделан заказ №{$order_inv} на сайте {$shopName}";
 
         if (!empty($user_email) && filter_var($user_email, FILTER_VALIDATE_EMAIL)) {
-            $mailer->send((new Swift_Message($subjClient))->setFrom([$smtpLogin=>$shopName])->setTo($user_email)->setBody($body, 'text/html'));
+            MailService::sendHtml($user_email, $subjClient, $body);
         }
         if (!empty($adminEmail) && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-            $mailer->send((new Swift_Message($subjAdmin))->setFrom([$smtpLogin=>$shopName])->setTo($adminEmail)->setBody($body, 'text/html'));
+            MailService::sendHtml($adminEmail, $subjAdmin, $body);
         }
         if (!empty($admin_id) && (string)$admin_id !== '0') {
             $adm = \R::findOne('user', 'id = ?', [$admin_id]);
             if ($adm && !empty($adm['email'])) {
-                $mailer->send((new Swift_Message($subjAdmin))->setFrom([$smtpLogin=>$shopName])->setTo($adm['email'])->setBody($body, 'text/html'));
+                MailService::sendHtml($adm['email'], $subjAdmin, $body);
             }
         }
     } catch (\Throwable $e) {
-        $log("SMTP error: ".$e->getMessage());
+        $log('SMTP error: ' . get_class($e));
     }
 
     // --- ОЧИСТКА СЕССИИ И СООБЩЕНИЕ ---

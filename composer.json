@@ -12,7 +12,7 @@
     "php": "^8.2",
     "gabordemooij/redbean": "^5.7",
     "vlucas/valitron": "^1.4",
-    "swiftmailer/swiftmailer": "^6.3",
+    "symfony/mailer": "^7.2",
     "dompdf/dompdf": "^2.0"
   }
 }
