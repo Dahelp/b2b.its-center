@@ -626,6 +626,16 @@ unset($item);
         $dostavka            = \R::getAll("SELECT id, name FROM dostavka WHERE id IN (1, 2) AND hide='show' ORDER BY id");
         $transport_companies = \R::getAll("SELECT id, name FROM transport_company ORDER BY name");
         $cities              = \R::getAll("SELECT id, city_name FROM cities ORDER BY city_name");
+        $order_info->city_display_name = trim((string)($order_info->city_text ?? ''));
+        if ((int)($order_info->city_id ?? 0) > 0) {
+            $savedCityName = \R::getCell(
+                "SELECT city_name FROM cities WHERE id = ? LIMIT 1",
+                [(int)$order_info->city_id]
+            );
+            if (is_string($savedCityName) && trim($savedCityName) !== '') {
+                $order_info->city_display_name = trim($savedCityName);
+            }
+        }
         $order_marks         = \R::getAll("
             SELECT om.* 
             FROM order_marks om 

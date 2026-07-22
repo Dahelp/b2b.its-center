@@ -314,7 +314,7 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 class="col-md-4 mb-3"
                                 style="display:none"
                                 data-current-city-id="<?= (int)($order_info->city_id ?? 0) ?>"
-                                data-current-city-text="<?= htmlspecialchars($order_info->city_text ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                data-current-city-text="<?= htmlspecialchars($order_info->city_display_name ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <label for="order_city_selector" class="mb-1">Город*</label>
                                 <select id="order_city_selector" class="form-control" name="city_id">
                                     <option></option> <!-- требуется для placeholder/allowClear -->
@@ -685,12 +685,9 @@ function renderCitySelect2ForOrder() {
 
         if (currentId > 0) {
             // справочник
-            const opt = new Option('Загрузка…', currentId, true, true);
+            const opt = new Option(currentText || ('Город #' + currentId), currentId, true, true);
             $sel.append(opt).trigger('change');
 
-            // подменим «Загрузка…» на реальное имя из $cities (если есть в шаблоне),
-            // либо оставим как есть — сервер всё равно примет id
-            // Можно подтянуть через AJAX, но обычно список уже загружен ранее.
         } else if (currentText !== '') {
             // кастомный город
             $name.val(currentText);
