@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/config/env.php';
+
 $configFile = (string)(getenv('DB_CONFIG_FILE') ?: (dirname(__DIR__) . '/config/config_db.php'));
 if (!is_file($configFile)) {
     fwrite(STDERR, "DB_CONFIG_MISSING\n");
