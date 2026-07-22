@@ -108,14 +108,6 @@ class UserController extends AppController {
         $this->setMeta('Сообщения');
     }
 	
-	public function exportAction() {
-        if (!User::checkAuth()) {
-            redirect('/');
-            exit;
-        }
-        $this->setMeta('Экспорт товаров');
-    }
-
     public function loginAction() {
         if (!empty($_POST)) {
             $user = new User();

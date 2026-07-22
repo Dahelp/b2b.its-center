@@ -63,12 +63,6 @@ if ($user && !empty($user->admin_id)) {
 				</a>
 			</li>
 			<li class="aiz-side-nav-item">
-				<a class="aiz-side-nav-link" href="user/export">
-					<i class="far fa-file-pdf aiz-side-nav-icon"></i>
-					<span class="aiz-side-nav-text">Выгрузка товаров</span>
-				</a>
-			</li>
-			<li class="aiz-side-nav-item">
 				<a class="aiz-side-nav-link" href="user/newsletter">
 					<i class="far fa-file-pdf aiz-side-nav-icon"></i>
 					<span class="aiz-side-nav-text">Подписки</span>

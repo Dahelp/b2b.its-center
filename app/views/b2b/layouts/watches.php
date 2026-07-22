@@ -167,7 +167,6 @@
 												<ul class="dropdown-menu" aria-labelledby="toolsDropdown">
 													<li><a class="dropdown-item" href="/user/bookmarks">Закладки</a></li>
 													<li><a class="dropdown-item" href="/user/pricelist">Прайс лист</a></li>
-													<li><a class="dropdown-item" href="/user/export">Выгрузка товаров</a></li>
 													<li><a class="dropdown-item" href="/user/newsletter">Подписки</a></li>
 												</ul>
 											</div>

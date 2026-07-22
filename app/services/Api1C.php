@@ -34,12 +34,6 @@ class Api1C
 
     public static function getProductData($article, $tip = 2)
     {
-        file_put_contents(
-            ROOT . '/storage/logs/debug_call.txt',
-            date('Y-m-d H:i:s') . " | Вызов getProductData($article)\n",
-            FILE_APPEND
-        );
-
         self::init();
 
         $key = md5($article);
@@ -47,10 +41,12 @@ class Api1C
 
         $now = time();
         $ttl = max(5, (int)(getenv('API_1C_CACHE_TTL') ?: 30));
+        $staleTtl = max($ttl, (int)(getenv('API_1C_STALE_TTL') ?: 86400));
+        $cache = null;
 
         if (file_exists($cacheFile)) {
             $cache = json_decode(file_get_contents($cacheFile), true);
-            if ($cache && isset($cache['updated_at']) && ($now - $cache['updated_at']) < $ttl) {
+            if (is_array($cache) && isset($cache['updated_at'], $cache['data']) && ($now - $cache['updated_at']) < $ttl) {
                 return $cache['data'];
             }
         }
@@ -60,12 +56,6 @@ class Api1C
             'api_goods.php',
             'tovars?code=' . urlencode($article),
             'GET'
-        );
-
-        file_put_contents(
-            ROOT . '/storage/logs/debug_response.txt',
-            date('Y-m-d H:i:s') . " | $article | " . print_r($response, true) . "\n",
-            FILE_APPEND
         );
 
         if (!empty($response['success']) && isset($response['response'][0])) {
@@ -96,6 +86,10 @@ class Api1C
                 date('Y-m-d H:i:s') . " | $article | " . ($response['error'] ?? 'unknown error') . " | URL: " . ($response['url'] ?? '') . "\n",
                 FILE_APPEND
             );
+        }
+
+        if (is_array($cache) && isset($cache['updated_at'], $cache['data']) && ($now - $cache['updated_at']) < $staleTtl) {
+            return $cache['data'];
         }
 
         return null;

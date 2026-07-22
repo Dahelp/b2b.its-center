@@ -3,8 +3,6 @@
 namespace ishop;
 
 use NumberFormatter;
-use Guzzlehttp\Guzzle;
-
 class App{
 
     public static $app;
