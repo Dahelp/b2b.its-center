@@ -17,9 +17,9 @@
 											<div class="cont_ht border border-grey">
 												<div class="cont_blok_img">
 													<?php if($item["img"] !="") { ?>
-														<img src="images/contents/baseimg/<?=$item["img"]?>" alt="<?=$item["name"]?>" title="<?=$item["name"]?>" />
+														<img src="https://its-center.ru/images/contents/baseimg/<?=rawurlencode(basename((string)$item["img"]))?>" alt="<?=htmlspecialchars($item["name"], ENT_QUOTES, 'UTF-8')?>" title="<?=htmlspecialchars($item["name"], ENT_QUOTES, 'UTF-8')?>" loading="lazy" onerror="this.onerror=null;this.src='/images/no_image.jpg';" />
 													<?php } else { ?>
-														<img src="images/no_image.jpg" alt="" />
+														<img src="/images/no_image.jpg" alt="" loading="lazy" />
 													<?php } ?>
 												</div>
 												<div class="cont_info">

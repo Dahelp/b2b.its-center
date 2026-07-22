@@ -25,7 +25,7 @@
 													<?php if($find->img) { ?>
 														<?php if($find->img_hide == "show") { ?>
 															<div class="cont-img">
-																<img src="images/contents/baseimg/<?=$find->img;?>" alt="" />
+														<img src="https://its-center.ru/images/contents/baseimg/<?=rawurlencode(basename((string)$find->img))?>" alt="<?=htmlspecialchars($find->name, ENT_QUOTES, 'UTF-8')?>" onerror="this.onerror=null;this.src='/images/no_image.jpg';" />
 															</div>
 														<?php } ?>
 													<?php } ?>
