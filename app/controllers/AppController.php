@@ -13,6 +13,29 @@ class AppController extends Controller {
     public function __construct($route) {
         parent::__construct($route);
 
+        $routeKey = strtolower((string)($route['controller'] ?? '')) . ':' . strtolower((string)($route['action'] ?? 'index'));
+        $publicRoutes = [
+            'main:index',
+            'user:login',
+            'user:recover',
+            'user:recoverpass',
+            'api:savemarks',
+        ];
+
+        if (!in_array($routeKey, $publicRoutes, true) && empty($_SESSION['b2buser']['id'])) {
+            $isAjax = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+                || str_contains(strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+
+            if ($isAjax) {
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success' => false, 'error' => 'Authentication required'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            redirect('/');
+        }
+
         new AppModel();
 
         App::$app->setProperty('currencies', Currency::getCurrencies());

@@ -227,7 +227,7 @@ class CartController extends AppController {
         $formData = $_SESSION['form_data'] ?? [];
 
         $b2buser = $_SESSION['b2buser'] ?? null;
-        $company = $b2buser ? \R::getAll("SELECT * FROM company WHERE user_id = '".$b2buser['id']."'") : null;
+        $company = $b2buser ? \R::getAll("SELECT * FROM company WHERE user_id = ?", [(int)$b2buser['id']]) : null;
 
         $dostavka = \R::getAll("SELECT * FROM dostavka WHERE id IN (1, 2) AND hide='show'");
         $transport = \R::getAll("SELECT * FROM transport_company WHERE hide='show'");

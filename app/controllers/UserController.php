@@ -10,6 +10,8 @@ use ishop\App;
 use ishop\libs\Pagination;
 use app\helpers\ApiClient;
 use app\helpers\RequestGuard;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 
 class UserController extends AppController {
 	
@@ -85,15 +87,10 @@ class UserController extends AppController {
             \R::exec("DELETE FROM `user_newsletter` WHERE `user_id` = ?", [$userId]);
             \R::exec("UPDATE `user` SET `newsletter` = '0' WHERE `id` = ?", [$userId]);
         } elseif ($checked === 0) {
-            $newsletters = \R::getAssoc("SELECT id FROM newsletter");
-            $sql_part = '';
-            foreach ($newsletters as $v) {
-                $sql_part .= "($userId, $v),";
-            }
-            $sql_part = rtrim($sql_part, ',');
-            if ($sql_part) {
-                \R::exec("INSERT INTO user_newsletter (user_id, newsletter_id) VALUES $sql_part");
-            }
+            \R::exec(
+                'INSERT IGNORE INTO user_newsletter (user_id, newsletter_id) SELECT ?, id FROM newsletter',
+                [(int)$userId]
+            );
             \R::exec("UPDATE `user` SET `newsletter` = '1' WHERE `id` = ?", [$userId]);
         }
 
@@ -299,16 +296,16 @@ class UserController extends AppController {
             continue;
         }
 
-        // подтянуть актуальные данные из 1С
-        $apiResult = ApiClient::sendGetRequest([], 'api_orders.php', 'order/' . $order['guid_1c']);
-        if (empty($apiResult['success'])) {
-            $log .= "❌ API ошибка для заказа ID={$order['id']} — HTTP " . ($apiResult['http_code'] ?? '0') . "\n";
+        $syncTtl = max(5, (int)(getenv('API_1C_ORDER_CACHE_TTL') ?: 30));
+        $lastSync = !empty($order['update_at']) ? strtotime((string)$order['update_at']) : false;
+        if ($lastSync !== false && $lastSync > time() - $syncTtl) {
             continue;
         }
 
-        $apiData = $apiResult['response'] ?? null;
-        if (!is_array($apiData)) {
-            $log .= "❌ Ошибка формата ответа API для заказа ID={$order['id']}\n";
+        // подтянуть актуальные данные из 1С
+        $apiData = Api1C::getOrderData((string)$order['guid_1c']);
+        if ($apiData === null) {
+            $log .= "❌ API ошибка для заказа ID={$order['id']}\n";
             continue;
         }
 
@@ -438,14 +435,16 @@ class UserController extends AppController {
             }
         }
 
-        if ($changed) {
-            $orderInDb->update_at = date('Y-m-d H:i:s');
-            \R::store($orderInDb);
-        }
+        // Фиксируем успешную синхронизацию даже при отсутствии изменений,
+        // чтобы просмотр страницы не опрашивал 1С повторно до истечения TTL.
+        $orderInDb->update_at = date('Y-m-d H:i:s');
+        \R::store($orderInDb);
     }
 
     $log .= "[END] Завершено\n";
-    @file_put_contents(ROOT . '/storage/logs/status_debug.log', $log, FILE_APPEND);
+    if (in_array((string)getenv('APP_ENV'), ['local', 'development'], true)) {
+        file_put_contents(ROOT . '/storage/logs/status_debug.log', $log, FILE_APPEND | LOCK_EX);
+    }
 
     $this->setMeta('История заказов');
     $this->set(compact('orders', 'status', 'pagination'));
@@ -1592,11 +1591,10 @@ if ($request === 1) {
         ini_set('display_errors', 0);
         error_reporting(0);
     
-        $order_id = $_GET['id'] ?? 0;
+        $order_id = (int)($_GET['id'] ?? 0);
         if (!$order_id) exit('Нет заказа');
-    
-        $user_id = $_SESSION['b2buser']['id'] ?? 0;
-        if (!$user_id) exit('Нет доступа');
+
+        $user_id = RequestGuard::requireAuth();
     
         $order = \R::findOne('order', 'id = ? AND user_id = ?', [$order_id, $user_id]);
         if (!$order) exit('Заказ не найден');
@@ -1613,11 +1611,20 @@ if ($request === 1) {
         if (empty($marks)) exit('Марки не найдены');
     
         $qr_images = [];
+        $qrWriter = new PngWriter();
         foreach ($marks as $i => $m) {
             $markBase64 = $m['mark_base64'] ?? '';
-            $qr_url = 'https://api.qrserver.com/v1/create-qr-code/?data=' . urlencode($markBase64) . '&size=100x100';
-            $img_data = @file_get_contents($qr_url);
-            $qr_images[$i] = $img_data ? 'data:image/png;base64,' . base64_encode($img_data) : '';
+            if ($markBase64 === '') {
+                $qr_images[$i] = '';
+                continue;
+            }
+            try {
+                $qrCode = new QrCode(data: $markBase64, size: 180, margin: 4);
+                $qr_images[$i] = 'data:image/png;base64,' . base64_encode($qrWriter->write($qrCode)->getString());
+            } catch (\Throwable $e) {
+                error_log('Local QR generation failed: ' . get_class($e));
+                $qr_images[$i] = '';
+            }
         }
     
         $GLOBALS['order'] = $order;
@@ -1641,8 +1648,9 @@ if ($request === 1) {
     }
 
     public function proxyPdfAction() {
-        $type = $_GET['type'] ?? null;
-        $guid = $_GET['guid'] ?? null;
+        $userId = RequestGuard::requireAuth();
+        $type = (string)($_GET['type'] ?? '');
+        $guid = trim((string)($_GET['guid'] ?? ''));
     
         if (!$type || !$guid) {
             echo 'Ошибка параметров';
@@ -1658,6 +1666,17 @@ if ($request === 1) {
             echo 'Неверный тип документа';
             exit;
         }
+
+        if (!preg_match('/^[a-f0-9-]{8,64}$/i', $guid)) {
+            http_response_code(400);
+            exit('Неверный идентификатор документа');
+        }
+
+        $ownedOrder = \R::findOne('order', 'guid_1c = ? AND user_id = ?', [$guid, $userId]);
+        if (!$ownedOrder) {
+            http_response_code(404);
+            exit('Документ не найден');
+        }
     
         $method = "order/{$guid}/{$types[$type]}";
     
@@ -1667,7 +1686,7 @@ if ($request === 1) {
         $httpCode = $response['http_code'] ?? 0;
         $rawPdf   = $response['body'] ?? null;
     
-        if ($httpCode !== 200 || !$rawPdf) {
+        if ($httpCode !== 200 || !is_string($rawPdf) || !str_starts_with($rawPdf, '%PDF-')) {
             echo 'Не удалось получить PDF';
             exit;
         }
@@ -1675,6 +1694,8 @@ if ($request === 1) {
         // 📄 Отдаём PDF-файл во вкладку браузера
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="document.pdf"');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . strlen($rawPdf));
         echo $rawPdf;
         exit;
     }

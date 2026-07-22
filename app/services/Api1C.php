@@ -99,6 +99,16 @@ class Api1C
     {
         self::init();
 
+        $cacheFile = self::$cacheDir . 'services.json';
+        $now = time();
+        $ttl = max(30, (int)(getenv('API_1C_SERVICES_CACHE_TTL') ?: 300));
+        $staleTtl = max($ttl, (int)(getenv('API_1C_STALE_TTL') ?: 86400));
+        $cache = self::readCache($cacheFile);
+
+        if ($cache !== null && ($now - $cache['updated_at']) < $ttl) {
+            return $cache['data'];
+        }
+
         /*
          * ВАЖНО:
          * Товары у тебя идут через:
@@ -116,12 +126,6 @@ class Api1C
             'GET'
         );
 
-        file_put_contents(
-            ROOT . '/storage/logs/debug_services_response.txt',
-            date('Y-m-d H:i:s') . " | services | " . print_r($response, true) . "\n",
-            FILE_APPEND
-        );
-
         if (empty($response['success'])) {
             file_put_contents(
                 ROOT . '/storage/logs/log_api_error.txt',
@@ -129,16 +133,48 @@ class Api1C
                 FILE_APPEND
             );
 
-            return [];
+            return $cache !== null && ($now - $cache['updated_at']) < $staleTtl ? $cache['data'] : [];
         }
 
         $data = $response['response'] ?? [];
 
         if (!is_array($data)) {
-            return [];
+            return $cache !== null && ($now - $cache['updated_at']) < $staleTtl ? $cache['data'] : [];
         }
 
+        self::writeCache($cacheFile, $data, $now);
+
         return $data;
+    }
+
+    public static function getOrderData(string $guid): ?array
+    {
+        self::init();
+
+        $guid = trim($guid);
+        if ($guid === '' || !preg_match('/^[a-f0-9-]{8,64}$/i', $guid)) {
+            return null;
+        }
+
+        $cacheFile = self::$cacheDir . 'order_' . hash('sha256', $guid) . '.json';
+        $now = time();
+        $ttl = max(5, (int)(getenv('API_1C_ORDER_CACHE_TTL') ?: 30));
+        $staleTtl = max($ttl, (int)(getenv('API_1C_ORDER_STALE_TTL') ?: 300));
+        $cache = self::readCache($cacheFile);
+
+        if ($cache !== null && ($now - $cache['updated_at']) < $ttl) {
+            return $cache['data'];
+        }
+
+        $response = ApiClient::sendGetRequest([], 'api_orders.php', 'order/' . $guid);
+        $data = $response['response'] ?? null;
+
+        if (!empty($response['success']) && is_array($data)) {
+            self::writeCache($cacheFile, $data, $now);
+            return $data;
+        }
+
+        return $cache !== null && ($now - $cache['updated_at']) < $staleTtl ? $cache['data'] : null;
     }
 
     public static function getServicesByCode(): array
@@ -167,5 +203,31 @@ class Api1C
         }
 
         return $result;
+    }
+
+    private static function readCache(string $cacheFile): ?array
+    {
+        if (!is_file($cacheFile)) {
+            return null;
+        }
+
+        $decoded = json_decode((string)file_get_contents($cacheFile), true);
+        if (!is_array($decoded) || !isset($decoded['updated_at'], $decoded['data']) || !is_array($decoded['data'])) {
+            return null;
+        }
+
+        return [
+            'updated_at' => (int)$decoded['updated_at'],
+            'data' => $decoded['data'],
+        ];
+    }
+
+    private static function writeCache(string $cacheFile, array $data, int $updatedAt): void
+    {
+        file_put_contents(
+            $cacheFile,
+            json_encode(['data' => $data, 'updated_at' => $updatedAt], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        );
     }
 }

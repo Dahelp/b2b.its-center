@@ -6,6 +6,7 @@ class ApiClient {
 
     public static function sendRequest(array $data, string $configPath, string $methodOverride = null, string $httpMethod = 'POST'): array {
         $config = require ROOT . "/config/{$configPath}";
+        self::validateConfig($config);
 
         $host = rtrim($config['host'], '/');
         $base = trim($config['base'], '/');
@@ -74,11 +75,7 @@ class ApiClient {
         if (json_last_error() !== JSON_ERROR_NONE) {
             file_put_contents(
                 ROOT . '/storage/logs/order_api_json_error.log',
-                "[" . date('Y-m-d H:i:s') . "] JSON decode error: " . json_last_error_msg() . "\n" .
-                "URL: {$url}\n" .
-                "Raw:\n{$response}\n\n" .
-                "Clean:\n{$responseClean}\n\n" .
-                str_repeat("=", 40) . "\n\n",
+                "[" . date('Y-m-d H:i:s') . "] JSON decode error: " . json_last_error_msg() . " | URL: {$url}\n",
                 FILE_APPEND
             );
         }
@@ -121,6 +118,7 @@ class ApiClient {
 
     public static function sendGetRequest(array $queryParams, string $configPath, string $methodOverride = null): array {
         $config = require ROOT . "/config/{$configPath}";
+        self::validateConfig($config);
 
         $host = rtrim($config['host'], '/');
         $base = trim($config['base'], '/');
@@ -153,7 +151,7 @@ class ApiClient {
         // Лог при ошибке или пустом ответе
         if ($httpCode !== 200 || !$response || json_last_error() !== JSON_ERROR_NONE) {
             file_put_contents(ROOT . '/storage/logs/order_api_error.log',
-                "[" . date('Y-m-d H:i:s') . "] GET {$url}\nHTTP: {$httpCode}\nError: {$curlError}\nRaw:\n{$response}\n\n",
+                "[" . date('Y-m-d H:i:s') . "] GET {$url} | HTTP: {$httpCode} | Error: {$curlError}\n",
                 FILE_APPEND
             );
         }
@@ -173,6 +171,7 @@ class ApiClient {
         }
     
         $config = require $configPath;
+        self::validateConfig($config);
     
         $url = rtrim($config['host'], '/') . '/' .
                trim($config['base'], '/') . '/' .
@@ -200,6 +199,20 @@ class ApiClient {
             'http_code' => $httpCode,
             'body' => $body,
         ];
+    }
+
+    private static function validateConfig(array $config): void
+    {
+        $host = (string)($config['host'] ?? '');
+        $auth = $config['auth'] ?? null;
+
+        if (!preg_match('#^https?://#i', $host)) {
+            throw new \RuntimeException('1C API host is not configured');
+        }
+
+        if (!is_array($auth) || count($auth) < 2 || (string)$auth[0] === '' || (string)$auth[1] === '') {
+            throw new \RuntimeException('1C API credentials are not configured');
+        }
     }
     
     

@@ -1,11 +1,13 @@
 <?php
 
 return [
-    'host' => 'http://84.47.156.246:8082',
-    'base' => 'trade',
-    //'base' => 'trade_test_site',
+    'host' => (string)getenv('API_1C_HOST'),
+    'base' => (string)(getenv('API_1C_BASE') ?: 'trade'),
     'hs' => 'hs',
     'service' => 'site-exchange',
     'method' => 'close-order',
-    'auth' => ['GetCompanyByINN', 'GetCompanyByINN'],
+    'auth' => [
+        (string)getenv('API_1C_USER'),
+        (string)getenv('API_1C_PASSWORD'),
+    ],
 ];
