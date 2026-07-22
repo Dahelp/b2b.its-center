@@ -122,7 +122,7 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 </thead>
                                 <tbody id="order-products-body">
                                 <?php foreach ($order as $item): ?>
-                                    <tr class="product type-product" data-article="<?= $item['article'] ?>" data-order-id="<?= $item['order_id'] ?>" data-product-id="<?= $item['product_id'] ?>" data-mod-id="<?= $item['mod_id'] ?? 0 ?>">
+                                    <tr class="product type-product" data-article="<?= $item['article'] ?>" data-order-id="<?= $item['order_id'] ?>" data-order-product-id="<?= (int)$item['order_product_id'] ?>" data-product-id="<?= $item['product_id'] ?>" data-mod-id="<?= $item['mod_id'] ?? 0 ?>">
                                         <td>
                                             <img src="https://its-center.ru/images/product/unload/<?= $item['unload_img'] ?? 'no-image.jpg' ?>" width="50">
                                         </td>
@@ -138,8 +138,8 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                         <td>
                                         <?php if ($is_editable): ?>
                                             <?php
-                                                // Уникальный идентификатор товара: product_id или product_id-mod_id
-                                                $order_uid = ($item['mod_id'] ?? null) ? $item['product_id'] . '-' . $item['mod_id'] : $item['product_id'];
+                                                // Уникальный идентификатор отдельной строки заказа из 1С
+                                                $order_uid = 'line-' . (int)$item['order_product_id'];
                                             ?>
                                             <div class="quantity-block" style="display: inline-flex;">
                                                 <button type="button"
@@ -444,11 +444,12 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 // Удаление товара (явно помечаем, что строка удалена)
                                 $('#order-products-body').on('click', '.del-item-order', function () {
                                     const $tr = $(this).closest('tr');
+                                    const orderProductId = Number($tr.data('order-product-id') || 0);
                                     const article = String($tr.data('article') || '').trim();
                                     const modId = Number($tr.data('mod-id') || 0);
 
-                                    if (article !== '') {
-                                        const k = `${article}-${modId}`;
+                                    if (orderProductId > 0 || article !== '') {
+                                        const k = orderProductId > 0 ? `id:${orderProductId}` : `${article}-${modId}`;
                                         if (!deletedKeys.includes(k)) deletedKeys.push(k);
                                     }
                                     $tr.remove();
@@ -489,14 +490,16 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                     // товары
                                     $('#order-products-body tr').each(function () {
                                         const article  = $(this).data('article');
+                                        const orderProductId = Number($(this).data('order-product-id') || 0);
                                         const productId= $(this).data('product-id');
                                         const modId    = $(this).data('mod-id') || 0;
                                         const qty      = parseInt($(this).find('input.order-qty-input').val()) || 0;
 
-                                        const key = modId ? `${productId}-${modId}` : `${productId}`;
+                                        const key = orderProductId > 0 ? `line-${orderProductId}` : (modId ? `${productId}-${modId}` : `${productId}`);
 
                                         if (article && qty > 0) {
                                             data.append(`products[${key}][itemCode]`, article);
+                                            data.append(`products[${key}][order_product_id]`, orderProductId);
                                             data.append(`products[${key}][product_id]`, productId);
                                             data.append(`products[${key}][mod_id]`, modId);
                                             data.append(`products[${key}][qnt]`, qty);
@@ -531,8 +534,7 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 });
 
                                 $('body').on('click', '.order-quantity-plus', function(){
-                                    const id = $(this).data('order-id');
-                                    const input = $('.order-qty-item-' + id);
+                                    const input = $(this).closest('tr').find('input.order-qty-input').first();
                                     let val = parseInt(input.val()) || 1;
                                     const max = parseInt(input.attr('max')) || 999;
 
@@ -544,8 +546,7 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                                 });
 
                                 $('body').on('click', '.order-quantity-minus', function(){
-                                    const id = $(this).data('order-id');
-                                    const input = $('.order-qty-item-' + id);
+                                    const input = $(this).closest('tr').find('input.order-qty-input').first();
                                     let val = parseInt(input.val()) || 1;
 
                                     if (val > 1) {

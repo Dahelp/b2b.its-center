@@ -658,8 +658,10 @@ class Order extends AppModel {
         // Существующие строки заказа
         $existing = \R::getAll("SELECT * FROM order_product WHERE order_id = ?", [$order->id]);
         $existingMap = []; // ключ "article-mod_id"
+        $existingById = [];
         foreach ($existing as $row) {
             $existingMap[ trim((string)$row['article']) . '-' . (int)$row['mod_id'] ] = $row;
+            $existingById[(int)$row['id']] = $row;
         }
 
         // Выбор цены по типу компании (для НОВЫХ строк)
@@ -706,12 +708,29 @@ class Order extends AppModel {
             $qty       = (int)($item['qnt'] ?? 0);
             $productId = (int)($item['product_id'] ?? 0);
             $modId     = (int)($item['mod_id'] ?? 0);
+            $hasOrderProductId = array_key_exists('order_product_id', $item);
+            $orderProductId = (int)($item['order_product_id'] ?? 0);
 
             if ($qty <= 0 || $article === '') continue;
 
             $key = $article . '-' . $modId;
 
-            if (isset($existingMap[$key])) {
+            if ($orderProductId > 0 && isset($existingById[$orderProductId])) {
+                $was = $existingById[$orderProductId];
+                if ((int)$was['qty'] !== $qty) {
+                    \R::exec(
+                        "UPDATE order_product SET qty = ? WHERE id = ? AND order_id = ?",
+                        [$qty, $orderProductId, (int)$order->id]
+                    );
+                }
+                continue;
+            }
+
+            if ($orderProductId > 0) {
+                continue;
+            }
+
+            if (!$hasOrderProductId && isset($existingMap[$key])) {
                 // строка уже есть → меняем ТОЛЬКО qty (если отличается)
                 $was = $existingMap[$key];
                 $wasQty = (int)$was['qty'];
@@ -770,6 +789,16 @@ class Order extends AppModel {
         $deleted = array_values(array_unique(array_map('strval', $deleted)));
 
         foreach ($deleted as $delKey) {
+            if (str_starts_with($delKey, 'id:')) {
+                $orderProductId = (int)substr($delKey, 3);
+                if ($orderProductId > 0 && isset($existingById[$orderProductId])) {
+                    \R::exec(
+                        "DELETE FROM order_product WHERE id = ? AND order_id = ?",
+                        [$orderProductId, (int)$order->id]
+                    );
+                }
+                continue;
+            }
             [$art, $mid] = explode('-', $delKey, 2);
             if (isset($existingMap[$delKey])) {
                 \R::exec("
