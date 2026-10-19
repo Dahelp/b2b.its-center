@@ -199,8 +199,8 @@ $is_editable = ($order_info->status == 1) && ($order_date == $today);
                         </div>
                         <?php endif; ?>
 
-                        <?php if (in_array((int)$order_info->status_1c, [1, 7], true)): ?>
-                            <!-- Статус 1 или 7 — показывать ничего НЕ надо -->
+                        <?php if ((int)$order_info->status_1c === 7): ?>
+                            <!-- Для отменённого заказа документы скрыты -->
                         <?php else: ?>
                             <hr>
                             <h4 class="pt-2">Документы по заказу</h4>
